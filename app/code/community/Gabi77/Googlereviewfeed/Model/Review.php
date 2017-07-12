@@ -8,33 +8,39 @@
  */
 class Gabi77_Googlereviewfeed_Model_Review
 {
- 
+
 
 
   public function __construct() {
   	$this->param = Mage::helper('googlereviewfeed')->parameterReviewfeed();
   }
-	
+
   public function getReviews() {
-  
+
 	  $reviews = Mage::getModel('review/review')->getCollection()
 	  ->addStoreFilter(Mage::app()->getStore()->getId())
 	  ->addStatusFilter(Mage_Review_Model_Review::STATUS_APPROVED)
 	  ->setDateOrder('desc')
 	  ->addRateVotes();
-	  
+
 	  return $reviews;
   }
-  
+
   /**
-   * Product data ( url , sku , name , id ) 
+   * Product data ( url , sku , name , id )
    *
    * @return array
    *
    **/
   public function productInformation($id) {
-  	
+
+
   	$_product = Mage::getModel('catalog/product')->load($id);
+    $attributes = $_product->getAttributes();
+    foreach ($attributes as $attribute) {
+      if ($attribute->getFrontendLabel() == 'EAN Code')
+        $eanCode = $attribute->getFrontend()->getValue($_product);
+    }
 
   	//$param = Mage::helper('googlereviewfeed')->parameterReviewfeed();
   	$type = $this->param['type'];
@@ -43,27 +49,31 @@ class Gabi77_Googlereviewfeed_Model_Review
   						'purl'	=> $_product->getProductUrl(),
   						'psku'	=> $_product->getId(),
   						'pid'	=> $_product->getId(),
+              'pbrand' => $_product->getAttributeText('manufacturer'),
+              'pean' => $eanCode,
   		);
   	} else {
   		$result = array('pname' => $_product->getName(),
   						'purl'	=> $_product->getProductUrl(),
   						'psku'	=> $_product->getSku(),
   						'pid'	=> $_product->getId(),
+              'pbrand' => $_product->getAttributeText('manufacturer'),
+              'pean' => $eanCode,
   		);
   	}
   	return $result;
-  	
+
   }
-  
+
 
   /**
-   * 
+   *
    * @return string
    *
    **/
   public function getAllReviews(){
-  	
-  	
+
+
 	$_reviews = $this->getReviews();
   	$reviewsxml = '';
   	foreach ($_reviews as $item) {
@@ -76,7 +86,7 @@ class Gabi77_Googlereviewfeed_Model_Review
 		            <reviewer>
 		                <name><![CDATA['.$item->getNickname().']]></name>
 		            </reviewer>
-		            <review_timestamp>'.str_replace(" ","T",$this->formatCreatedDate($item->getCreatedAt(), "Y/m/d H:i:s")).'Z</review_timestamp>
+		            <review_timestamp>'.str_replace(" ","T",$this->formatCreatedDate($item->getCreatedAt(), "Y-m-d H:i:s")).'Z</review_timestamp>
 		            <content><![CDATA['.$item->getDetail().']]></content>
 		            <review_url type="singleton">'.$product['purl'].'#comment</review_url>
 		            <ratings>
@@ -85,8 +95,17 @@ class Gabi77_Googlereviewfeed_Model_Review
 		            <products>
 		                <product>
 		                    <product_ids>
+                            <gtins>
+                                <gtin>'.$product['pean'].'</gtin>
+                            </gtins>
+                            <mpns>
+                                <mpn>'.$product['psku'].'</mpn>
+                            </mpns>
+                            <brands>
+                                <brand>'.$product['pbrand'].'</brand>
+                            </brands>
 		                        <skus>
-		                            <sku>'.$product['psku'].'</sku>
+		                            <sku>'.$product['pid'].'</sku>
 		                        </skus>
 		                    </product_ids>
 		                    <product_name><![CDATA['.$product['pname'].']]></product_name>
@@ -94,12 +113,12 @@ class Gabi77_Googlereviewfeed_Model_Review
 		                </product>
 		            </products>
 		        </review>';
-  		
+
   	}
   	return $reviewsxml;
-  	
+
   }
-  
+
   /**
    * percentage for reviews (0/5)
    *
@@ -108,34 +127,34 @@ class Gabi77_Googlereviewfeed_Model_Review
    **/
 
   public function getReviewFinalPercentage($votes){
-  
+
   	$cumulativeRating = 0;
   	$j=0;
   	foreach( $votes as $vote ) {
   		$cumulativeRating +=$vote->getPercent();
   		$j++;
   	}
-  
+
   	$finalPercentage = 0;
   	if ($cumulativeRating != 0){
   		$finalPercentage = ($cumulativeRating/$j);
   	}
-  
+
   	return $finalPercentage / 20;
   }
-  
+
   /**
-   * Format date 
+   * Format date
    *
    * @return string
    *
    **/
 
   public function formatCreatedDate($date, $format){
-  
+
   	$date = strtotime($date);
   	$reviewDate = date($format, $date);
-  
+
   	return $reviewDate;
   }
 }
